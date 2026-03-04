@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SYNAPSE™ | The Future of Tech</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#030303',
+                        brand: '#00F0FF',
+                        accent: '#7000FF'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Iconify -->
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+
+    <style>
+        /* Global & Reset */
+        body, html {
+            margin: 0;
+            padding: 0;
+            background-color: #030303;
+            color: #ffffff;
+            overflow-x: hidden;
+            cursor: none; /* Hide default cursor for custom GSAP cursor */
+        }
+
+        /* Global Noise Texture */
+        .noise-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.04;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Custom Cursor - Mix Blend Mode Difference */
+        .cursor-dot, .cursor-outline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10000;
+            mix-blend-mode: difference;
+        }
+        .cursor-dot {
+            width: 8px;
+            height: 8px;
+            background-color: white;
+        }
+        .cursor-outline {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: width 0.3s, height 0.3s, background-color 0.3s;
+        }
+
+        /* WebGL Background Canvas */
+        #webgl-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* 4-Column Clip Path Stagger / Motion Blur Setup */
+        .clip-col {
+            will-change: transform, filter;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
+        }
+
+        .img-overlay {
+            background: linear-gradient(to bottom, rgba(3,3,3,0.2) 0%, #030303 100%);
+        }
+
+        /* Infinite Marquee */
+        .marquee-container {
+            display: flex;
+            white-space: nowrap;
+            overflow: hidden;
+            width: 100vw;
+        }
+        .marquee-content {
+            display: flex;
+            animation: marquee 20s linear infinite;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* Glassmorphism & Flashlight Hover */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.4s;
+        }
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: var(--y, 50%);
+            left: var(--x, 50%);
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, transparent 60%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .glass-card:hover::before {
+            opacity: 1;
+        }
+        .glass-card:hover {
+            border-color: rgba(0, 240, 255, 0.3);
+            transform: translateY(-5px);
+        }
+
+        /* 1px Glowing Border Beam */
+        .glow-beam {
+            position: relative;
+        }
+        .glow-beam::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; width: 100%; height: 1px;
+            background: linear-gradient(90deg, transparent, #00F0FF, transparent);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .glow-beam:hover::after {
+            transform: scaleX(1);
+        }
+
+        /* Typography Reveal */
+        .reveal-text {
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
+        }
+        .reveal-line {
+            transform: translateY(100%);
+            display: inline-block;
+        }
+
+        /* Utility */
+        .content-layer { z-index: 10; position: relative; }
+        
+        /* Magnetic Button Container */
+        .magnetic-wrap {
+            display: inline-block;
+            padding: 20px;
+        }
+        .magnetic-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50px;
+            padding: 16px 40px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            overflow: hidden;
+            transition: color 0.3s;
+        }
+        .magnetic-btn::before {
+            content: '';
+            position: absolute;
+            top: 100%; left: 0; width: 100%; height: 100%;
+            background: #ffffff;
+            border-radius: 50%;
+            transition: top 0.4s cubic-bezier(0.25, 1, 0.5, 1), border-radius 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: -1;
+        }
+        .magnetic-btn:hover {
+            color: #030303;
+        }
+        .magnetic-btn:hover::before {
+            top: 0;
+            border-radius: 0;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Global Grain Noise -->
+    <div class="noise-bg"></div>
+
+    <!-- Custom Cursor -->
+    <div class="cursor-dot" id="cursor-dot"></div>
+    <div class="cursor-outline" id="cursor-outline"></div>
+
+    <!-- WebGL Background -->
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- Navigation -->
+    <header class="fixed top-0 left-0 w-full p-6 md:p-10 flex justify-between items-center content-layer mix-blend-difference pointer-events-none">
+        <div class="text-2xl font-display font-bold tracking-widest pointer-events-auto cursor-pointer glow-beam">
+            SYNAPSE™
+        </div>
+        <div class="hidden md:flex gap-8 font-sans text-sm tracking-widest pointer-events-auto">
+            <a href="#vision" class="hover:text-brand transition-colors glow-beam pb-1">VISION</a>
+            <a href="#core" class="hover:text-brand transition-colors glow-beam pb-1">CORE</a>
+            <a href="#connect" class="hover:text-brand transition-colors glow-beam pb-1">CONNECT</a>
+        </div>
+        <div class="pointer-events-auto cursor-pointer p-2 md:hidden">
+            <iconify-icon icon="solar:hamburger-menu-linear" width="28"></iconify-icon>
+        </div>
+    </header>
+
+    <!-- Hero Section (4-Column Staggered Clip) -->
+    <section class="h-screen w-full flex flex-row overflow-hidden relative content-layer" id="hero">
+        
+        <!-- Center Massive Typography -->
+        <div class="absolute inset-0 flex flex-col justify-center items-center z-20 pointer-events-none mix-blend-difference px-4 text-center">
+            <h1 class="font-display font-bold text-[12vw] leading-none tracking-tighter text-white reveal-text">
+                <span class="reveal-line hero-title">SYSTEM_</span>
+            </h1>
+            <h1 class="font-display font-bold text-[12vw] leading-none tracking-tighter text-white reveal-text">
+                <span class="reveal-line hero-title text-transparent stroke-text" style="-webkit-text-stroke: 2px white;">INITIALIZED</span>
+            </h1>
+            <p class="font-sans text-sm md:text-lg tracking-[0.3em] mt-8 text-white/80 uppercase hero-sub">
+                Quantum Computing Meets Cognitive AI
+            </p>
+        </div>
+
+        <!-- Col 1 -->
+        <div class="col-slice clip-col flex-1 h-full relative">
+            <img src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop" class="absolute w-full h-full object-cover" alt="Tech">
+            <div class="absolute inset-0 img-overlay"></div>
+            <div class="absolute bottom-10 left-4 text-xs font-sans tracking-widest opacity-50 rotate-[-90deg] origin-left">01 // NEURAL</div>
+        </div>
+        <!-- Col 2 -->
+        <div class="col-slice clip-col flex-1 h-full relative">
+            <img src="https://images.unsplash.com/photo-1614729939124-032f0b56c9ce?q=80&w=2070&auto=format&fit=crop" class="absolute w-full h-full object-cover" alt="Abstract">
+            <div class="absolute inset-0 img-overlay"></div>
+        </div>
+        <!-- Col 3 -->
+        <div class="col-slice clip-col flex-1 h-full relative">
+            <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop" class="absolute w-full h-full object-cover" alt="Circuit">
+            <div class="absolute inset-0 img-overlay"></div>
+        </div>
+        <!-- Col 4 -->
+        <div class="col-slice clip-col flex-1 h-full relative">
+            <img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=2104&auto=format&fit=crop" class="absolute w-full h-full object-cover" alt="Matrix">
+            <div class="absolute inset-0 img-overlay"></div>
+            <div class="absolute bottom-10 right-4 text-xs font-sans tracking-widest opacity-50 rotate-[90deg] origin-right">04 // SYNTHESIS</div>
+        </div>
+    </section>
+
+    <!-- Infinite Marquee Section -->
+    <section class="py-12 border-y border-white/10 content-layer bg-dark/50 backdrop-blur-sm relative" id="vision">
+        <div class="marquee-container text-4xl md:text-8xl font-display font-bold text-transparent" style="-webkit-text-stroke: 1px rgba(255,255,255,0.2);">
+            <div class="marquee-content gap-8">
+                <span>PRECISION / SPEED / ADAPTABILITY / FUTURE / </span>
+                <span>PRECISION / SPEED / ADAPTABILITY / FUTURE / </span>
+                <span>PRECISION / SPEED / ADAPTABILITY / FUTURE / </span>
+                <span>PRECISION / SPEED / ADAPTABILITY / FUTURE / </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Features (Interaction Pro & Glassmorphism) -->
+    <section class="py-32 px-6 md:px-20 content-layer relative" id="core">
+        <div class="max-w-7xl mx-auto">
+            
+            <div class="flex flex-col md:flex-row justify-between items-end mb-20">
+                <h2 class="font-display text-5xl md:text-7xl font-bold tracking-tighter leading-tight section-title">
+                    ARCHITECTING <br> <span class="text-brand">TOMORROW</span>
+                </h2>
+                <p class="font-sans text-white/50 max-w-sm mt-6 md:mt-0 text-sm leading-relaxed section-desc">
+                    By merging neural-network paradigms with sub-zero quantum computing logic, SYNAPSE achieves unprecedented data synthesis.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                
+                <!-- Card 1 -->
+                <div class="glass-card p-10 h-[400px] flex flex-col justify-between group">
+                    <div class="flex justify-between items-start">
+                        <iconify-icon icon="solar:cpu-bolt-line-duotone" width="48" class="text-brand group-hover:scale-110 transition-transform duration-500"></iconify-icon>
+                        <span class="font-display font-bold text-white/20 text-2xl">01</span>
+                    </div>
+                    <div>
+                        <h3 class="font-display text-2xl font-bold mb-4">Quantum Compute</h3>
+                        <p class="font-sans text-sm text-white/60 leading-relaxed">
+                            Harnessing qubit superpositions to execute multi-dimensional algorithms at speeds unconstrained by classical physics.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="glass-card p-10 h-[400px] flex flex-col justify-between group md:translate-y-12">
+                    <div class="flex justify-between items-start">
+                        <iconify-icon icon="solar:code-scan-line-duotone" width="48" class="text-brand group-hover:scale-110 transition-transform duration-500"></iconify-icon>
+                        <span class="font-display font-bold text-white/20 text-2xl">02</span>
+                    </div>
+                    <div>
+                        <h3 class="font-display text-2xl font-bold mb-4">Cognitive A.I.</h3>
+                        <p class="font-sans text-sm text-white/60 leading-relaxed">
+                            Self-evolving networks that adapt to data entropy, providing real-time predictive modeling with 99.9% accuracy.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="glass-card p-10 h-[400px] flex flex-col justify-between group">
+                    <div class="flex justify-between items-start">
+                        <iconify-icon icon="solar:server-square-update-line-duotone" width="48" class="text-brand group-hover:scale-110 transition-transform duration-500"></iconify-icon>
+                        <span class="font-display font-bold text-white/20 text-2xl">03</span>
+                    </div>
+                    <div>
+                        <h3 class="font-display text-2xl font-bold mb-4">Seamless Synergy</h3>
+                        <p class="font-sans text-sm text-white/60 leading-relaxed">
+                            A decentralized infrastructure enabling zero-latency integrations across enterprise nodes globally.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Global Partners -->
+    <section class="py-20 border-t border-white/5 content-layer bg-gradient-to-b from-transparent to-dark">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <p class="font-sans text-xs tracking-[0.3em] text-white/40 mb-12 uppercase">Empowering Core Infrastructures For</p>
+            <div class="flex flex-wrap justify-center gap-12 md:gap-24 opacity-60">
+                <iconify-icon icon="simple-icons:vercel" width="40" class="hover:text-white transition-colors cursor-pointer"></iconify-icon>
+                <iconify-icon icon="simple-icons:amazonaws" width="40" class="hover:text-white transition-colors cursor-pointer"></iconify-icon>
+                <iconify-icon icon="simple-icons:nvidia" width="40" class="hover:text-brand transition-colors cursor-pointer"></iconify-icon>
+                <iconify-icon icon="simple-icons:tesla" width="40" class="hover:text-white transition-colors cursor-pointer"></iconify-icon>
+                <iconify-icon icon="simple-icons:spacex" width="100" class="hover:text-white transition-colors cursor-pointer translate-y-[10px]"></iconify-icon>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA & Footer (Modern Brand & Magnet Effect) -->
+    <footer class="h-[80vh] flex flex-col justify-center items-center relative content-layer overflow-hidden" id="connect">
+        <!-- Giant Background Text -->
+        <div class="absolute inset-0 flex justify-center items-center pointer-events-none opacity-5">
+            <h1 class="font-display font-bold text-[20vw] leading-none text-white whitespace-nowrap">SYNAPSE</h1>
+        </div>
+
+        <div class="z-10 text-center flex flex-col items-center">
+            <h2 class="font-display text-4xl md:text-6xl font-bold mb-10 tracking-tight">
+                READY TO <span class="text-brand">INTEGRATE?</span>
+            </h2>
+            
+            <div class="magnetic-wrap">
+                <button class="magnetic-btn magnetic text-white" data-cursor-hover="true">
+                    Initialize Deployment
+                </button>
+            </div>
+        </div>
+
+        <div class="absolute bottom-10 w-full px-10 flex justify-between items-center text-xs font-sans text-white/30 uppercase tracking-widest">
+            <span>© 2024 SYNAPSE INC.</span>
+            <span>All Systems Nominal</span>
+        </div>
+    </footer>
+
+
+    <!-- Scripts -->
+    <!-- GSAP Core & ScrollTrigger -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <!-- Lenis for Smooth Scrolling -->
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.19/bundled/lenis.min.js"></script>
+    <!-- Three.js for WebGL Background -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --------------------------------------------------------
+        // 1. Lenis Smooth Scroll Initialization (Essentials)
+        // --------------------------------------------------------
+        const lenis = new Lenis({
+            duration: 1.5,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical',
+            gestureDirection: 'vertical',
+            smooth: true,
+            mouseMultiplier: 1,
+            smoothTouch: false,
+        });
+
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // Connect GSAP to Lenis
+        gsap.registerPlugin(ScrollTrigger);
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time)=>{
+            lenis.raf(time * 1000);
+        });
+        gsap.ticker.lagSmoothing(0, 0);
+
+
+        // --------------------------------------------------------
+        // 2. Custom Cursor (Modern Brand)
+        // --------------------------------------------------------
+        const cursorDot = document.getElementById('cursor-dot');
+        const cursorOutline = document.getElementById('cursor-outline');
+
+        window.addEventListener('mousemove', (e) => {
+            const posX = e.clientX;
+            const posY = e.clientY;
+
+            // Dot follows instantly
+            gsap.to(cursorDot, { x: posX, y: posY, duration: 0, ease: "none" });
+            
+            // Outline follows with slight delay
+            gsap.to(cursorOutline, { x: posX, y: posY, duration: 0.15, ease: "power2.out" });
+        });
+
+        // Cursor Hover Effects on interactive elements
+        const hoverElements = document.querySelectorAll('a, button, .magnetic, .glass-card, iconify-icon');
+        hoverElements.forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                gsap.to(cursorOutline, { scale: 1.8, backgroundColor: "rgba(255,255,255,1)", duration: 0.3 });
+                gsap.to(cursorDot, { scale: 0, duration: 0.3 });
+            });
+            el.addEventListener('mouseleave', () => {
+                gsap.to(cursorOutline, { scale: 1, backgroundColor: "transparent", duration: 0.3 });
+                gsap.to(cursorDot, { scale: 1, duration: 0.3 });
+            });
+        });
+
+
+        // --------------------------------------------------------
+        // 3. Magnetic Button Effect (Modern Brand)
+        // --------------------------------------------------------
+        const magnetics = document.querySelectorAll('.magnetic');
+        magnetics.forEach(btn => {
+            btn.addEventListener('mousemove', function(e) {
+                const rect = this.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                
+                gsap.to(this, {
+                    x: x * 0.4,
+                    y: y * 0.4,
+                    duration: 0.5,
+                    ease: "power3.out"
+                });
+            });
+
+            btn.addEventListener('mouseleave', function(e) {
+                gsap.to(this, {
+                    x: 0,
+                    y: 0,
+                    duration: 0.7,
+                    ease: "elastic.out(1, 0.3)"
+                });
+            });
+        });
+
+
+        // --------------------------------------------------------
+        // 4. Glassmorphism Flashlight Hover (Interaction Pro)
+        // --------------------------------------------------------
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('mousemove', function(e) {
+                const rect = this.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                this.style.setProperty('--x', `${x}px`);
+                this.style.setProperty('--y', `${y}px`);
+            });
+        });
+
+
+        // --------------------------------------------------------
+        // 5. Hero Intro Animations (Awwwards Extreme - Motion Blur Stagger)
+        // --------------------------------------------------------
+        const tl = gsap.timeline();
+
+        // Staggered column load with pseudo motion blur
+        tl.fromTo(".col-slice", 
+            { y: "100vh", filter: "blur(20px)" },
+            { y: "0vh", filter: "blur(0px)", duration: 1.5, stagger: 0.1, ease: "power4.out" }
+        )
+        // Typography reveal
+        .fromTo(".hero-title",
+            { y: "110%" },
+            { y: "0%", duration: 1.2, stagger: 0.1, ease: "power4.out" },
+            "-=1.0"
+        )
+        .fromTo(".hero-sub",
+            { opacity: 0, y: 20 },
+            { opacity: 1, y: 0, duration: 1, ease: "power2.out" },
+            "-=0.5"
+        );
+
+
+        // --------------------------------------------------------
+        // 6. ScrollTrigger Section Reveals
+        // --------------------------------------------------------
+        gsap.fromTo(".section-title",
+            { opacity: 0, y: 50 },
+            {
+                scrollTrigger: {
+                    trigger: "#core",
+                    start: "top 70%",
+                },
+                opacity: 1, y: 0, duration: 1, ease: "power3.out"
+            }
+        );
+
+        gsap.fromTo(".section-desc",
+            { opacity: 0, x: -30 },
+            {
+                scrollTrigger: {
+                    trigger: "#core",
+                    start: "top 70%",
+                },
+                opacity: 1, x: 0, duration: 1, delay: 0.2, ease: "power3.out"
+            }
+        );
+
+        gsap.fromTo(".glass-card",
+            { opacity: 0, y: 100 },
+            {
+                scrollTrigger: {
+                    trigger: ".glass-card",
+                    start: "top 80%",
+                },
+                opacity: 1, y: (i, el) => el.classList.contains('md:translate-y-12') ? 48 : 0, 
+                duration: 1.2, stagger: 0.15, ease: "power4.out"
+            }
+        );
+
+
+        // --------------------------------------------------------
+        // 7. Three.js Background (WebGL Visualist)
+        // --------------------------------------------------------
+        const canvas = document.getElementById('webgl-canvas');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x030303, 0.001);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.z = 500;
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        // Create Particles network
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 2000;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 1500;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 2,
+            color: 0x00F0FF,
+            transparent: true,
+            opacity: 0.4,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, material);
+        scene.add(particlesMesh);
+
+        // Mouse interaction with WebGL
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+        });
+
+        // WebGL Animation Loop
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            targetX = mouseX * 0.05;
+            targetY = mouseY * 0.05;
+
+            particlesMesh.rotation.y += 0.0005;
+            particlesMesh.rotation.x += 0.0002;
+
+            // Camera subtle movement (Physics feel)
+            camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.02;
+            camera.position.y += (-mouseY * 0.5 - camera.position.y) * 0.02;
+            camera.lookAt(scene.position);
+
+            // Animate points wave
+            const positions = particlesMesh.geometry.attributes.position.array;
+            for(let i = 0; i < particlesCount; i++) {
+                const i3 = i * 3;
+                const x = positions[i3];
+                // slight sine wave motion on Y
+                positions[i3 + 1] += Math.sin(elapsedTime + x) * 0.02;
+            }
+            particlesMesh.geometry.attributes.position.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
