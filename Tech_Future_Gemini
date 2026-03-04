@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS.CORE | 未來科技邊界</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Space Grotesk', 'sans-serif'],
+                        display: ['Syncopate', 'sans-serif'],
+                    },
+                    colors: {
+                        dark: '#030303',
+                        primary: '#00f0ff',
+                        secondary: '#7000ff',
+                        glass: 'rgba(255, 255, 255, 0.03)',
+                        glassBorder: 'rgba(255, 255, 255, 0.08)',
+                    },
+                    backgroundImage: {
+                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.19/bundled/lenis.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        /* Base & Resets */
+        body {
+            background-color: #030303;
+            color: #ffffff;
+            overflow-x: hidden;
+            cursor: none; /* Hide default cursor for custom cursor */
+        }
+        
+        ::selection {
+            background: #00f0ff;
+            color: #000;
+        }
+
+        /* Global Noise Texture (E) */
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.04;
+            background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+        }
+
+        /* Custom Cursor (B) */
+        .cursor-dot,
+        .cursor-outline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 10000;
+            pointer-events: none;
+        }
+        .cursor-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #00f0ff;
+            mix-blend-mode: difference;
+        }
+        .cursor-outline {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(0, 240, 255, 0.5);
+            transition: width 0.2s, height 0.2s, background-color 0.2s;
+            mix-blend-mode: difference;
+        }
+        .cursor-hover .cursor-outline {
+            width: 80px;
+            height: 80px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: transparent;
+            backdrop-filter: blur(2px);
+        }
+
+        /* WebGL Background (D, E) */
+        #webgl-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Glassmorphism & 1px Border Beam (B, C) */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+            border-radius: 24px;
+        }
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+        .glass-card:hover::before {
+            left: 100%;
+        }
+
+        /* Flashlight Glare / Glow (C) */
+        .glow-bg {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(112,0,255,0.15) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            filter: blur(60px);
+            pointer-events: none;
+            z-index: -1;
+            transition: transform 0.1s;
+        }
+
+        /* Sonar Pulse (C) */
+        .sonar-pulse {
+            position: relative;
+        }
+        .sonar-pulse::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            border: 2px solid #00f0ff;
+            animation: pulse 2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+            opacity: 0;
+        }
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+
+        /* Text Clip Reveal (C) */
+        .text-clip-wrapper {
+            overflow: hidden;
+            display: inline-block;
+        }
+        .text-clip {
+            transform: translateY(100%);
+            display: inline-block;
+        }
+
+        /* Infinite Marquee (C) */
+        .marquee-container {
+            display: flex;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .marquee-content {
+            display: flex;
+            animation: marquee 20s linear infinite;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* Liquid Wipe Transition Overlay (D) */
+        .liquid-transition {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000;
+            z-index: 9998;
+            clip-path: circle(150% at 50% 100%);
+        }
+
+        /* Vertical Container Guides (UI Standards) */
+        .guide-lines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; justify-content: space-between;
+            padding: 0 5vw;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .guide-line {
+            width: 1px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.03);
+        }
+        
+        /* Image Clip (D) */
+        .img-clip {
+            clip-path: inset(100% 0 0 0);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="noise-overlay"></div>
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+    <div class="liquid-transition" id="page-transition"></div>
+    <canvas id="webgl-canvas"></canvas>
+
+    <div class="guide-lines">
+        <div class="guide-line"></div>
+        <div class="guide-line"></div>
+        <div class="guide-line"></div>
+        <div class="guide-line"></div>
+        <div class="guide-line"></div>
+    </div>
+
+    <nav class="fixed top-0 left-0 w-full z-50 px-6 py-6 mix-blend-difference flex justify-between items-center">
+        <div class="text-xl font-display font-bold tracking-widest text-white hover-target magnetic">
+            NEXUS<span class="text-primary">.CORE</span>
+        </div>
+        <div class="hidden md:flex gap-8 text-sm tracking-widest font-medium">
+            <a href="#vision" class="hover-target hover:text-primary transition-colors">VISION</a>
+            <a href="#system" class="hover-target hover:text-primary transition-colors">SYSTEM</a>
+            <a href="#matrix" class="hover-target hover:text-primary transition-colors">MATRIX</a>
+        </div>
+        <button class="magnetic hover-target glass-card px-6 py-2 text-sm font-bold tracking-wider rounded-full border border-white/20 hover:bg-white/10 transition-all">
+            INITIATE
+        </button>
+    </nav>
+
+    <main class="relative h-screen w-full flex flex-col justify-center px-6 md:px-20 pt-20">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glow-bg" id="hero-glow"></div>
+        
+        <div class="z-10 max-w-5xl">
+            <p class="text-primary font-display tracking-[0.3em] text-xs md:text-sm mb-6 flex items-center gap-3 reveal-text">
+                <span class="w-8 h-[1px] bg-primary block"></span> PROTOCOL 01
+            </p>
+            <h1 class="text-5xl md:text-8xl lg:text-[10rem] font-display font-bold leading-none uppercase mb-8">
+                <div class="text-clip-wrapper"><span class="text-clip hero-title">Beyond</span></div><br>
+                <div class="text-clip-wrapper"><span class="text-clip hero-title">The <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Edge</span></span></div>
+            </h1>
+            <div class="flex flex-col md:flex-row gap-8 items-start md:items-center">
+                <p class="text-gray-400 max-w-md text-lg font-light leading-relaxed reveal-text">
+                    Next-generation quantum processing and neural symbiosis. Redefining the boundaries of human-computer interaction through infinite scalability.
+                </p>
+                <button class="magnetic hover-target group relative px-8 py-4 bg-white text-black rounded-full font-bold tracking-widest overflow-hidden">
+                    <span class="relative z-10 group-hover:text-white transition-colors duration-300">REQUEST ACCESS</span>
+                    <div class="absolute inset-0 bg-primary transform scale-x-0 origin-left group-hover:scale-x-100 transition-transform duration-500 ease-out z-0"></div>
+                </button>
+            </div>
+        </div>
+        
+        <div class="absolute bottom-10 left-6 md:left-20 flex flex-col items-center gap-2 reveal-text opacity-50">
+            <div class="text-[10px] tracking-[0.2em] uppercase writing-vertical-rl transform rotate-180">Scroll to explore</div>
+            <div class="w-[1px] h-12 bg-gradient-to-b from-white to-transparent"></div>
+        </div>
+    </main>
+
+    <section class="py-10 border-y border-white/10 bg-black/50 backdrop-blur-md rotate-[-2deg] transform scale-105 origin-center my-20">
+        <div class="marquee-container text-4xl md:text-6xl font-display font-bold text-transparent text-stroke-white opacity-40">
+            <div class="marquee-content gap-10 px-5">
+                <span>QUANTUM COMPUTING • NEURAL SYMBIOSIS • INFINITE SCALABILITY • WEBGL MASTERY • </span>
+                <span>QUANTUM COMPUTING • NEURAL SYMBIOSIS • INFINITE SCALABILITY • WEBGL MASTERY • </span>
+            </div>
+        </div>
+    </section>
+
+    <section id="system" class="py-32 px-6 md:px-20 relative">
+        <div class="mb-20">
+            <h2 class="text-3xl md:text-6xl font-display font-bold mb-4"><div class="text-clip-wrapper"><span class="text-clip section-title">SYSTEM ARCHITECTURE</span></div></h2>
+            <p class="text-gray-400 max-w-xl">Four pillars of our computational framework. Powered by advanced physics engines and real-time rendering algorithms.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 h-[150vh] md:h-[80vh] relative bento-grid">
+            
+            <div class="flex flex-col gap-6 stagger-col" data-speed="1.1">
+                <div class="glass-card p-8 h-80 flex flex-col justify-between group">
+                    <div class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center sonar-pulse mb-6 text-primary">
+                        <iconify-icon icon="solar:cpu-bolt-line-duotone" width="24"></iconify-icon>
+                    </div>
+                    <div>
+                        <div class="text-xs text-primary tracking-[0.2em] mb-2">01</div>
+                        <h3 class="text-xl font-bold mb-2">Quantum Core</h3>
+                        <p class="text-sm text-gray-400">Processing complex algorithms in multidimensional space instantaneously.</p>
+                    </div>
+                </div>
+                <div class="glass-card h-64 overflow-hidden relative group">
+                    <img src="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=800&auto=format&fit=crop" alt="Abstract Tech" class="w-full h-full object-cover img-clip transition-transform duration-700 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 stagger-col pt-12 md:pt-24" data-speed="0.8">
+                <div class="glass-card h-64 overflow-hidden relative group">
+                    <img src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=800&auto=format&fit=crop" alt="Cyber Security" class="w-full h-full object-cover img-clip transition-transform duration-700 group-hover:scale-110">
+                </div>
+                <div class="glass-card p-8 h-80 flex flex-col justify-between group">
+                    <div class="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center mb-6 text-secondary transition-transform group-hover:rotate-180 duration-500">
+                        <iconify-icon icon="solar:shield-network-line-duotone" width="24"></iconify-icon>
+                    </div>
+                    <div>
+                        <div class="text-xs text-secondary tracking-[0.2em] mb-2">02</div>
+                        <h3 class="text-xl font-bold mb-2">Neural Firewall</h3>
+                        <p class="text-sm text-gray-400">Adaptive defense mechanisms learning from real-time global threat data.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 stagger-col pt-0 md:pt-10" data-speed="1.2">
+                <div class="glass-card p-8 h-80 flex flex-col justify-between group">
+                    <div class="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6 text-white group-hover:scale-110 transition-transform">
+                        <iconify-icon icon="solar:infinity-line-duotone" width="24"></iconify-icon>
+                    </div>
+                    <div>
+                        <div class="text-xs text-white tracking-[0.2em] mb-2">03</div>
+                        <h3 class="text-xl font-bold mb-2">Infinite Scale</h3>
+                        <p class="text-sm text-gray-400">Elastic infrastructure that grows seamlessly with your computational demands.</p>
+                    </div>
+                </div>
+                <div class="glass-card h-64 overflow-hidden relative group">
+                    <img src="https://images.unsplash.com/photo-1614729939124-032f0b56c9ce?q=80&w=800&auto=format&fit=crop" alt="Space Scale" class="w-full h-full object-cover img-clip transition-transform duration-700 group-hover:scale-110">
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 stagger-col pt-12 md:pt-32" data-speed="0.9">
+                <div class="glass-card h-64 overflow-hidden relative group">
+                    <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop" alt="Data Flow" class="w-full h-full object-cover img-clip transition-transform duration-700 group-hover:scale-110">
+                </div>
+                <div class="glass-card p-8 h-80 flex flex-col justify-between group bg-gradient-to-br from-glass to-primary/10">
+                    <div class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mb-6 text-primary">
+                        <iconify-icon icon="solar:database-line-duotone" width="24"></iconify-icon>
+                    </div>
+                    <div>
+                        <div class="text-xs text-primary tracking-[0.2em] mb-2">04</div>
+                        <h3 class="text-xl font-bold mb-2">Data Matrix</h3>
+                        <p class="text-sm text-gray-400">High-fidelity data synchronization across distributed nodes globally.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <section class="py-20 border-t border-white/5 relative overflow-hidden">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(ellipse_at_center,rgba(0,240,255,0.05)_0%,transparent_70%)] pointer-events-none"></div>
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <p class="text-xs tracking-[0.3em] text-gray-500 mb-12">INTEGRATED WITH GLOBAL PIONEERS</p>
+            <div class="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-60">
+                <iconify-icon icon="simple-icons:openai" width="40" class="hover:text-primary transition-colors hover-target"></iconify-icon>
+                <iconify-icon icon="simple-icons:vercel" width="40" class="hover:text-primary transition-colors hover-target"></iconify-icon>
+                <iconify-icon icon="simple-icons:google" width="40" class="hover:text-primary transition-colors hover-target"></iconify-icon>
+                <iconify-icon icon="simple-icons:stripe" width="40" class="hover:text-primary transition-colors hover-target"></iconify-icon>
+                <iconify-icon icon="simple-icons:tesla" width="40" class="hover:text-primary transition-colors hover-target"></iconify-icon>
+            </div>
+        </div>
+    </section>
+
+    <footer class="relative py-32 px-6 flex flex-col items-center justify-center text-center overflow-hidden">
+        <div class="absolute inset-0 z-0">
+            <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2000&auto=format&fit=crop" alt="Earth" class="w-full h-full object-cover opacity-20 mix-blend-screen">
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent"></div>
+        </div>
+        
+        <div class="z-10 relative">
+            <h2 class="text-5xl md:text-8xl font-display font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500">
+                ENTER THE<br>ECOSYSTEM
+            </h2>
+            <button class="magnetic hover-target px-10 py-5 bg-primary text-black rounded-full font-bold tracking-[0.2em] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)] transition-shadow duration-300">
+                INITIALIZE CONNECTION
+            </button>
+        </div>
+        
+        <div class="z-10 mt-32 flex w-full max-w-7xl justify-between items-end border-t border-white/10 pt-8 text-xs text-gray-500 tracking-wider">
+            <div>&copy; 2026 NEXUS.CORE. ALL RIGHTS RESERVED.</div>
+            <div class="flex gap-4">
+                <a href="#" class="hover:text-white transition-colors hover-target">TWITTER</a>
+                <a href="#" class="hover:text-white transition-colors hover-target">GITHUB</a>
+                <a href="#" class="hover:text-white transition-colors hover-target">DISCORD</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Register GSAP plugins
+        gsap.registerPlugin(ScrollTrigger);
+
+        // 1. Smooth Scrolling (Lenis - Option A & E)
+        const lenis = new Lenis({
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical',
+            gestureDirection: 'vertical',
+            smooth: true,
+            mouseMultiplier: 1,
+            smoothTouch: false,
+            touchMultiplier: 2,
+            infinite: false,
+        });
+
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // Integrate GSAP with Lenis
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time) => {
+            lenis.raf(time * 1000);
+        });
+        gsap.ticker.lagSmoothing(0, 0);
+
+        // 2. Custom Cursor (Option B)
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        const hoverTargets = document.querySelectorAll('.hover-target');
+
+        window.addEventListener('mousemove', (e) => {
+            const posX = e.clientX;
+            const posY = e.clientY;
+
+            gsap.to(cursorDot, { x: posX, y: posY, duration: 0.1 });
+            gsap.to(cursorOutline, { x: posX, y: posY, duration: 0.8, ease: "power3.out" });
+            
+            // Flashlight Glare update (C)
+            const heroGlow = document.getElementById('hero-glow');
+            if(heroGlow) {
+                const xOffset = (posX / window.innerWidth - 0.5) * 100;
+                const yOffset = (posY / window.innerHeight - 0.5) * 100;
+                heroGlow.style.transform = `translate(${xOffset}px, ${yOffset}px)`;
+            }
+        });
+
+        hoverTargets.forEach(target => {
+            target.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
+            target.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
+        });
+
+        // 3. Magnetic Buttons (Option B)
+        const magnetics = document.querySelectorAll('.magnetic');
+        magnetics.forEach((btn) => {
+            btn.addEventListener('mousemove', (e) => {
+                const rect = btn.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                gsap.to(btn, { x: x * 0.4, y: y * 0.4, duration: 0.5, ease: "power2.out" });
+            });
+            btn.addEventListener('mouseleave', () => {
+                gsap.to(btn, { x: 0, y: 0, duration: 0.7, ease: "elastic.out(1, 0.3)" });
+            });
+        });
+
+        // 4. Page Load Animations (Liquid Wipe & Text Reveal) (Option D, C)
+        window.addEventListener('load', () => {
+            const tl = gsap.timeline();
+
+            // Liquid Wipe Out
+            tl.to('#page-transition', {
+                clipPath: 'circle(0% at 50% 100%)',
+                duration: 1.5,
+                ease: "power4.inOut"
+            })
+            // Hero Title Reveal
+            .to('.hero-title', {
+                y: '0%',
+                duration: 1,
+                stagger: 0.2,
+                ease: "power4.out"
+            }, "-=0.5")
+            // Paragraph Reveal
+            .fromTo('.reveal-text', {
+                y: 30, opacity: 0
+            }, {
+                y: 0, opacity: 1,
+                duration: 1,
+                stagger: 0.1,
+                ease: "power3.out"
+            }, "-=0.8");
+        });
+
+        // 5. Scroll Animations (Staggered Scroll & Clip) (Option C, E)
+        
+        // Section Title Reveal
+        gsap.to('.section-title', {
+            scrollTrigger: {
+                trigger: '#system',
+                start: 'top 80%',
+            },
+            y: '0%',
+            duration: 1,
+            ease: "power4.out"
+        });
+
+        // Image Clips Reveal
+        gsap.utils.toArray('.img-clip').forEach(img => {
+            gsap.to(img, {
+                scrollTrigger: {
+                    trigger: img,
+                    start: 'top 90%',
+                },
+                clipPath: 'inset(0% 0 0 0)',
+                duration: 1.5,
+                ease: "power4.inOut"
+            });
+        });
+
+        // Staggered Parallax Columns (Option E)
+        if(window.innerWidth > 768) {
+            gsap.utils.toArray('.stagger-col').forEach(col => {
+                const speed = col.getAttribute('data-speed');
+                gsap.to(col, {
+                    scrollTrigger: {
+                        trigger: '.bento-grid',
+                        start: 'top bottom',
+                        end: 'bottom top',
+                        scrub: 1
+                    },
+                    y: (i, target) => -ScrollTrigger.maxScroll(window) * (speed - 1) * 0.1,
+                    ease: "none"
+                });
+            });
+        }
+
+        // 6. WebGL Background (Three.js - Option D/E)
+        const initWebGL = () => {
+            const canvas = document.getElementById('webgl-canvas');
+            const scene = new THREE.Scene();
+            // Add slight fog for depth
+            scene.fog = new THREE.FogExp2(0x030303, 0.002);
+
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Create particles network
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 700;
+            const posArray = new Float32Array(particlesCount * 3);
+            
+            for(let i = 0; i < particlesCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 20; // Spread
+            }
+            
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.02,
+                color: 0x00f0ff,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+            
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+
+            // Create a wireframe sphere representing the "Core"
+            const geometry = new THREE.IcosahedronGeometry(3, 1);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0x7000ff, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.15
+            });
+            const sphere = new THREE.Mesh(geometry, material);
+            scene.add(sphere);
+
+            camera.position.z = 5;
+
+            // Mouse interaction for WebGL
+            let mouseX = 0;
+            let mouseY = 0;
+            let targetX = 0;
+            let targetY = 0;
+            const windowHalfX = window.innerWidth / 2;
+            const windowHalfY = window.innerHeight / 2;
+
+            document.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX - windowHalfX);
+                mouseY = (event.clientY - windowHalfY);
+            });
+
+            // Animation Loop
+            const clock = new THREE.Clock();
+
+            const tick = () => {
+                const elapsedTime = clock.getElapsedTime();
+
+                // Rotate particles
+                particlesMesh.rotation.y = elapsedTime * 0.05;
+                particlesMesh.rotation.x = elapsedTime * 0.02;
+
+                // Rotate Sphere
+                sphere.rotation.y = elapsedTime * 0.1;
+                sphere.rotation.z = elapsedTime * 0.05;
+
+                // Parallax effect based on mouse
+                targetX = mouseX * 0.001;
+                targetY = mouseY * 0.001;
+                
+                particlesMesh.rotation.y += 0.05 * (targetX - particlesMesh.rotation.y);
+                particlesMesh.rotation.x += 0.05 * (targetY - particlesMesh.rotation.x);
+
+                renderer.render(scene, camera);
+                window.requestAnimationFrame(tick);
+            };
+
+            tick();
+
+            // Handle Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        };
+
+        // Initialize WebGL
+        initWebGL();
+
+        // Add extra styling for text-stroke in Tailwind
+        tailwind.config.theme.extend.colors['text-stroke-white'] = '-webkit-text-stroke: 1px rgba(255,255,255,0.2); color: transparent;';
+    </script>
+    <style>
+        .text-stroke-white {
+            -webkit-text-stroke: 1px rgba(255,255,255,0.2);
+            color: transparent;
+        }
+        .writing-vertical-rl {
+            writing-mode: vertical-rl;
+        }
+    </style>
+</body>
+</html>
