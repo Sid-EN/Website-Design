@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUMINA | Artisan Coffee & Cinematic Brunch</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Manrope', 'sans-serif'],
+                        display: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        dark: '#0f0c0b',
+                        primary: '#d4af37', /* Gold/Amber */
+                        secondary: '#8b5a2b', /* Deep Coffee */
+                        cream: '#f5ecd5',
+                        glass: 'rgba(245, 236, 213, 0.03)',
+                        glassBorder: 'rgba(245, 236, 213, 0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.19/bundled/lenis.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        /* Base & Resets */
+        body {
+            background-color: #0f0c0b;
+            color: #f5ecd5;
+            overflow-x: hidden;
+            cursor: none;
+        }
+        
+        ::selection {
+            background: #d4af37;
+            color: #0f0c0b;
+        }
+
+        /* Global Noise Texture (E) */
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.06;
+            background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+        }
+
+        /* Custom Cursor (B) */
+        .cursor-dot,
+        .cursor-outline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 10000;
+            pointer-events: none;
+        }
+        .cursor-dot {
+            width: 6px;
+            height: 6px;
+            background-color: #d4af37;
+            mix-blend-mode: difference;
+        }
+        .cursor-outline {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            transition: width 0.2s, height 0.2s, background-color 0.2s;
+            mix-blend-mode: difference;
+        }
+        .cursor-hover .cursor-outline {
+            width: 90px;
+            height: 90px;
+            background-color: rgba(245, 236, 213, 1);
+            border-color: transparent;
+            backdrop-filter: blur(4px);
+            mix-blend-mode: difference;
+        }
+
+        /* WebGL Background (D, E) */
+        #webgl-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        /* Glassmorphism & 1px Border Beam (B, C) */
+        .glass-card {
+            background: rgba(245, 236, 213, 0.02);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(245, 236, 213, 0.06);
+            position: relative;
+            overflow: hidden;
+            border-radius: 2rem; /* Advanced Corner Radius */
+        }
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.15), transparent);
+            transition: left 0.6s ease;
+        }
+        .glass-card:hover::before {
+            left: 100%;
+        }
+
+        /* Flashlight Glare / Glow (C) */
+        .glow-bg {
+            position: absolute;
+            width: 70vw;
+            height: 70vw;
+            max-width: 800px;
+            max-height: 800px;
+            background: radial-gradient(circle, rgba(212,175,55,0.08) 0%, rgba(15,12,11,0) 60%);
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: -1;
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Sonar Pulse (C) */
+        .sonar-pulse {
+            position: relative;
+        }
+        .sonar-pulse::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            border: 1px solid #d4af37;
+            animation: pulse 2.5s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+            opacity: 0;
+        }
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.6; }
+            100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+        }
+
+        /* Text Clip Reveal (C) */
+        .text-clip-wrapper {
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: top;
+        }
+        .text-clip {
+            transform: translateY(110%);
+            display: inline-block;
+            transform-origin: left top;
+        }
+
+        /* Infinite Marquee (C) */
+        .marquee-container {
+            display: flex;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .marquee-content {
+            display: flex;
+            animation: marquee 25s linear infinite;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* Liquid Wipe Transition Overlay (D) */
+        .liquid-transition {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #0f0c0b;
+            z-index: 9998;
+            clip-path: circle(150% at 50% 100%);
+        }
+
+        /* Vertical Container Guides (UI Standards) */
+        .guide-lines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; justify-content: space-between;
+            padding: 0 6vw;
+            pointer-events: none;
+            z-index: -2;
+        }
+        .guide-line {
+            width: 1px;
+            height: 100%;
+            background: rgba(245, 236, 213, 0.03);
+        }
+        
+        /* 4-Column Image Clip (D) */
+        .img-clip {
+            clip-path: inset(100% 0 0 0);
+        }
+
+        /* Utility */
+        .text-stroke-cream {
+            -webkit-text-stroke: 1px rgba(245, 236, 213, 0.15);
+            color: transparent;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-primary selection:text-dark">
+
+    <div class="noise-overlay"></div>
+    <div class="cursor-dot"></div>
+    <div class="cursor-outline"></div>
+    <div class="liquid-transition" id="page-transition"></div>
+    <canvas id="webgl-canvas"></canvas>
+
+    <div class="guide-lines">
+        <div class="guide-line"></div>
+        <div class="guide-line"></div>
+        <div class="guide-line"></div>
+        <div class="guide-line"></div>
+        <div class="guide-line"></div>
+    </div>
+
+    <nav class="fixed top-0 left-0 w-full z-50 px-8 py-8 mix-blend-difference flex justify-between items-center">
+        <div class="text-2xl font-display font-bold tracking-widest text-cream hover-target magnetic uppercase">
+            Lumina<span class="text-primary italic font-light">.</span>
+        </div>
+        <div class="hidden md:flex gap-10 text-xs tracking-[0.2em] font-medium uppercase">
+            <a href="#philosophy" class="hover-target hover:text-primary transition-colors">Philosophy</a>
+            <a href="#menu" class="hover-target hover:text-primary transition-colors">Curations</a>
+            <a href="#space" class="hover-target hover:text-primary transition-colors">Atmosphere</a>
+        </div>
+        <button class="magnetic hover-target glass-card px-8 py-3 text-xs font-bold tracking-[0.15em] rounded-full border border-cream/20 hover:bg-cream hover:text-dark transition-all duration-300 uppercase">
+            Reserve
+        </button>
+    </nav>
+
+    <main class="relative h-screen w-full flex flex-col justify-center px-6 md:px-24 pt-20">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glow-bg" id="hero-glow"></div>
+        
+        <div class="absolute inset-0 z-[-1] overflow-hidden opacity-30 mask-image: linear-gradient(to bottom, black 60%, transparent)">
+            <img src="https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=2000&auto=format&fit=crop" alt="Coffee Pouring" class="w-full h-full object-cover" id="hero-img">
+        </div>
+
+        <div class="z-10 max-w-6xl w-full mx-auto relative">
+            <div class="flex items-center gap-4 mb-8 reveal-text">
+                <span class="w-12 h-[1px] bg-primary block"></span>
+                <p class="text-primary font-sans tracking-[0.3em] text-xs uppercase">Est. 2026</p>
+            </div>
+            
+            <h1 class="text-6xl md:text-8xl lg:text-[9rem] font-display font-bold leading-[0.9] mb-10">
+                <div class="text-clip-wrapper"><span class="text-clip hero-title">Artisanal</span></div><br>
+                <div class="text-clip-wrapper"><span class="text-clip hero-title italic font-light text-primary">Awakenings.</span></div>
+            </h1>
+            
+            <div class="flex flex-col md:flex-row gap-12 items-start md:items-center justify-between">
+                <p class="text-cream/70 max-w-md text-base md:text-lg font-light leading-relaxed reveal-text">
+                    A cinematic approach to morning rituals. Meticulously sourced beans, organic gastronomy, and mindful moments crafted in perfect harmony.
+                </p>
+                <button class="magnetic hover-target group relative px-10 py-5 bg-transparent border border-primary text-primary rounded-full font-sans text-sm tracking-[0.2em] overflow-hidden">
+                    <span class="relative z-10 group-hover:text-dark transition-colors duration-500 uppercase">Experience Lumina</span>
+                    <div class="absolute inset-0 bg-primary transform scale-y-0 origin-bottom group-hover:scale-y-100 transition-transform duration-500 ease-out z-0"></div>
+                </button>
+            </div>
+        </div>
+        
+        <div class="absolute bottom-12 left-6 md:left-24 flex flex-col items-center gap-4 reveal-text opacity-60">
+            <div class="text-[9px] tracking-[0.3em] uppercase writing-vertical-rl transform rotate-180">Descend</div>
+            <div class="w-[1px] h-16 bg-gradient-to-b from-primary to-transparent"></div>
+        </div>
+    </main>
+
+    <section class="py-12 border-y border-cream/5 bg-dark/60 backdrop-blur-xl rotate-[1deg] transform scale-105 origin-center my-24 z-10 relative">
+        <div class="marquee-container text-5xl md:text-7xl font-display font-black text-stroke-cream opacity-50">
+            <div class="marquee-content gap-12 px-6">
+                <span>POUR OVER • SOURDOUGH TOAST • SINGLE ORIGIN • MATCHA LATTE • ORGANIC EATS • </span>
+                <span>POUR OVER • SOURDOUGH TOAST • SINGLE ORIGIN • MATCHA LATTE • ORGANIC EATS • </span>
+            </div>
+        </div>
+    </section>
+
+    <section id="menu" class="py-32 px-6 md:px-12 lg:px-24 relative z-10">
+        <div class="mb-24 flex flex-col md:flex-row justify-between items-end gap-8">
+            <div class="max-w-2xl">
+                <div class="text-xs text-primary tracking-[0.3em] mb-4 uppercase">Curated Selection</div>
+                <h2 class="text-4xl md:text-6xl font-display font-bold leading-tight">
+                    <div class="text-clip-wrapper"><span class="text-clip section-title">Gastronomic</span></div><br>
+                    <div class="text-clip-wrapper"><span class="text-clip section-title italic text-primary font-light">Symphony</span></div>
+                </h2>
+            </div>
+            <p class="text-cream/60 max-w-sm text-sm leading-relaxed pb-2">
+                Four pillars of our sensory experience. Designed to elevate your palate and transform your daily rituals into art.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 h-[180vh] md:h-[90vh] relative bento-grid">
+            
+            <div class="flex flex-col gap-6 stagger-col" data-speed="1.15">
+                <div class="glass-card p-8 h-80 flex flex-col justify-between group">
+                    <div class="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center sonar-pulse mb-6 text-primary">
+                        <iconify-icon icon="solar:cup-hot-line-duotone" width="28"></iconify-icon>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-primary tracking-[0.2em] mb-3 opacity-70">01</div>
+                        <h3 class="text-2xl font-display font-bold mb-2">Liquid Gold</h3>
+                        <p class="text-sm text-cream/50 font-light">Single-origin espresso and slow-drip pour overs roasted to absolute perfection.</p>
+                    </div>
+                </div>
+                <div class="glass-card h-72 overflow-hidden relative group rounded-3xl">
+                    <img src="https://images.unsplash.com/photo-1442512595331-e89e73853f31?q=80&w=800&auto=format&fit=crop" alt="Pour Over Coffee" class="w-full h-full object-cover img-clip transition-transform duration-1000 group-hover:scale-105">
+                    <div class="absolute inset-0 bg-gradient-to-t from-dark/90 via-transparent to-transparent opacity-60"></div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 stagger-col pt-12 md:pt-28" data-speed="0.85">
+                <div class="glass-card h-72 overflow-hidden relative group rounded-3xl">
+                    <img src="https://images.unsplash.com/photo-1640816913166-51d6ed006f15?q=80&w=800&auto=format&fit=crop" alt="Avocado Toast" class="w-full h-full object-cover img-clip transition-transform duration-1000 group-hover:scale-105">
+                </div>
+                <div class="glass-card p-8 h-80 flex flex-col justify-between group">
+                    <div class="w-14 h-14 rounded-full bg-cream/5 flex items-center justify-center mb-6 text-cream transition-transform group-hover:rotate-[360deg] duration-1000 ease-in-out">
+                        <iconify-icon icon="solar:leaf-line-duotone" width="28"></iconify-icon>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-cream tracking-[0.2em] mb-3 opacity-50">02</div>
+                        <h3 class="text-2xl font-display font-bold mb-2">Organic Eats</h3>
+                        <p class="text-sm text-cream/50 font-light">Farm-to-table light bites, featuring artisanal sourdough and seasonal greens.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 stagger-col pt-0 md:pt-10" data-speed="1.2">
+                <div class="glass-card p-8 h-80 flex flex-col justify-between group bg-gradient-to-br from-glass to-primary/5">
+                    <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform duration-500">
+                        <iconify-icon icon="solar:chef-hat-line-duotone" width="28"></iconify-icon>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-primary tracking-[0.2em] mb-3 opacity-70">03</div>
+                        <h3 class="text-2xl font-display font-bold mb-2">Viennoiserie</h3>
+                        <p class="text-sm text-cream/50 font-light">Flaky, buttery layers baked fresh every morning by our master pastry chefs.</p>
+                    </div>
+                </div>
+                <div class="glass-card h-72 overflow-hidden relative group rounded-3xl">
+                    <img src="https://images.unsplash.com/photo-1509365465985-25d11c17e812?q=80&w=800&auto=format&fit=crop" alt="Croissant" class="w-full h-full object-cover img-clip transition-transform duration-1000 group-hover:scale-105">
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 stagger-col pt-12 md:pt-40" data-speed="0.9">
+                <div class="glass-card h-72 overflow-hidden relative group rounded-3xl">
+                    <img src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=800&auto=format&fit=crop" alt="Cafe Interior" class="w-full h-full object-cover img-clip transition-transform duration-1000 group-hover:scale-105 filter grayscale hover:grayscale-0 transition-all">
+                </div>
+                <div class="glass-card p-8 h-80 flex flex-col justify-between group">
+                    <div class="w-14 h-14 rounded-full bg-cream/5 flex items-center justify-center mb-6 text-cream">
+                        <iconify-icon icon="solar:armchair-line-duotone" width="28"></iconify-icon>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-cream tracking-[0.2em] mb-3 opacity-50">04</div>
+                        <h3 class="text-2xl font-display font-bold mb-2">Mindful Space</h3>
+                        <p class="text-sm text-cream/50 font-light">A tranquil sanctuary designed for deep conversations and quiet contemplation.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <section class="py-24 border-t border-cream/5 relative overflow-hidden z-10">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(ellipse_at_center,rgba(212,175,55,0.03)_0%,transparent_60%)] pointer-events-none"></div>
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <p class="text-[10px] tracking-[0.4em] text-cream/40 mb-16 uppercase">In Collaboration With</p>
+            <div class="flex flex-wrap justify-center items-center gap-16 md:gap-32 opacity-40 grayscale hover:grayscale-0 transition-all duration-500">
+                <iconify-icon icon="simple-icons:ubereats" width="48" class="hover:text-[#06C167] transition-colors hover-target"></iconify-icon>
+                <iconify-icon icon="simple-icons:foodpanda" width="48" class="hover:text-[#D70F64] transition-colors hover-target"></iconify-icon>
+                <iconify-icon icon="simple-icons:oatly" width="48" class="hover:text-cream transition-colors hover-target"></iconify-icon>
+                <iconify-icon icon="simple-icons:nespresso" width="48" class="hover:text-[#8b5a2b] transition-colors hover-target"></iconify-icon>
+                <iconify-icon icon="simple-icons:instagram" width="42" class="hover:text-[#E1306C] transition-colors hover-target"></iconify-icon>
+            </div>
+        </div>
+    </section>
+
+    <footer class="relative py-40 px-6 flex flex-col items-center justify-center text-center overflow-hidden z-10 bg-dark rounded-t-[4rem] border-t border-cream/5">
+        <div class="absolute inset-0 z-0">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_bottom,rgba(212,175,55,0.1)_0%,transparent_70%)]"></div>
+        </div>
+        
+        <div class="z-10 relative max-w-4xl mx-auto">
+            <div class="w-16 h-16 mx-auto mb-8 text-primary">
+                <iconify-icon icon="solar:stars-line-duotone" width="64"></iconify-icon>
+            </div>
+            <h2 class="text-5xl md:text-7xl lg:text-8xl font-display font-bold mb-10 text-cream leading-[1.1]">
+                Awaken Your<br><span class="italic font-light text-primary">Senses.</span>
+            </h2>
+            <button class="magnetic hover-target px-12 py-6 bg-primary text-dark rounded-full font-sans text-sm font-bold tracking-[0.2em] hover:shadow-[0_0_40px_rgba(212,175,55,0.3)] transition-shadow duration-500 uppercase">
+                Reserve A Table
+            </button>
+        </div>
+        
+        <div class="z-10 mt-40 flex flex-col md:flex-row w-full max-w-7xl justify-between items-center gap-6 border-t border-cream/10 pt-10 text-[10px] text-cream/40 tracking-[0.2em] uppercase">
+            <div>&copy; 2026 LUMINA BRUNCH & ROASTERY.</div>
+            <div class="flex gap-8">
+                <a href="#" class="hover:text-primary transition-colors hover-target">Instagram</a>
+                <a href="#" class="hover:text-primary transition-colors hover-target">Facebook</a>
+                <a href="#" class="hover:text-primary transition-colors hover-target">Location</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Register GSAP plugins
+        gsap.registerPlugin(ScrollTrigger);
+
+        // 1. Smooth Scrolling (Lenis - Option A & E)
+        const lenis = new Lenis({
+            duration: 1.4, // Slightly slower for elegance
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical',
+            gestureDirection: 'vertical',
+            smooth: true,
+            mouseMultiplier: 0.8,
+            smoothTouch: false,
+        });
+
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // Integrate GSAP with Lenis
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time) => {
+            lenis.raf(time * 1000);
+        });
+        gsap.ticker.lagSmoothing(0, 0);
+
+        // 2. Custom Cursor (Option B)
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        const hoverTargets = document.querySelectorAll('.hover-target');
+
+        window.addEventListener('mousemove', (e) => {
+            const posX = e.clientX;
+            const posY = e.clientY;
+
+            gsap.to(cursorDot, { x: posX, y: posY, duration: 0.1 });
+            gsap.to(cursorOutline, { x: posX, y: posY, duration: 0.6, ease: "power3.out" });
+            
+            // Flashlight Glare update (C)
+            const heroGlow = document.getElementById('hero-glow');
+            if(heroGlow) {
+                const xOffset = (posX - window.innerWidth / 2) * 0.5;
+                const yOffset = (posY - window.innerHeight / 2) * 0.5;
+                heroGlow.style.transform = `translate(-50%, -50%) translate(${xOffset}px, ${yOffset}px)`;
+            }
+        });
+
+        hoverTargets.forEach(target => {
+            target.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
+            target.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
+        });
+
+        // 3. Magnetic Buttons (Option B)
+        const magnetics = document.querySelectorAll('.magnetic');
+        magnetics.forEach((btn) => {
+            btn.addEventListener('mousemove', (e) => {
+                const rect = btn.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                gsap.to(btn, { x: x * 0.3, y: y * 0.3, duration: 0.6, ease: "power2.out" });
+            });
+            btn.addEventListener('mouseleave', () => {
+                gsap.to(btn, { x: 0, y: 0, duration: 0.8, ease: "elastic.out(1, 0.3)" });
+            });
+        });
+
+        // 4. Page Load Animations (Liquid Wipe & Text Reveal) (Option D, C)
+        window.addEventListener('load', () => {
+            const tl = gsap.timeline();
+
+            // Liquid Wipe Out
+            tl.to('#page-transition', {
+                clipPath: 'circle(0% at 50% 100%)',
+                duration: 1.8,
+                ease: "power4.inOut"
+            })
+            // Hero Title Reveal
+            .to('.hero-title', {
+                y: '0%',
+                duration: 1.2,
+                stagger: 0.15,
+                ease: "power4.out"
+            }, "-=0.8")
+            // Paragraph & Image Parallax Reveal
+            .fromTo('.reveal-text', {
+                y: 40, opacity: 0
+            }, {
+                y: 0, opacity: 1,
+                duration: 1.2,
+                stagger: 0.1,
+                ease: "power3.out"
+            }, "-=1.0")
+            .fromTo('#hero-img', {
+                scale: 1.1
+            },{
+                scale: 1,
+                duration: 2,
+                ease: "power2.out"
+            }, "-=1.5");
+        });
+
+        // Hero Image Parallax on scroll
+        gsap.to('#hero-img', {
+            scrollTrigger: {
+                trigger: 'main',
+                start: 'top top',
+                end: 'bottom top',
+                scrub: true
+            },
+            yPercent: 30,
+            ease: "none"
+        });
+
+        // 5. Scroll Animations (Staggered Scroll & Clip) (Option C, E)
+        
+        // Section Title Reveal
+        gsap.utils.toArray('.section-title').forEach(title => {
+            gsap.to(title, {
+                scrollTrigger: {
+                    trigger: title,
+                    start: 'top 85%',
+                },
+                y: '0%',
+                duration: 1.2,
+                ease: "power4.out"
+            });
+        });
+
+        // Image Clips Reveal
+        gsap.utils.toArray('.img-clip').forEach(img => {
+            gsap.to(img, {
+                scrollTrigger: {
+                    trigger: img,
+                    start: 'top 90%',
+                },
+                clipPath: 'inset(0% 0 0 0)',
+                duration: 1.6,
+                ease: "power4.inOut"
+            });
+        });
+
+        // Staggered Parallax Columns (Option E)
+        if(window.innerWidth > 768) {
+            gsap.utils.toArray('.stagger-col').forEach(col => {
+                const speed = col.getAttribute('data-speed');
+                gsap.to(col, {
+                    scrollTrigger: {
+                        trigger: '.bento-grid',
+                        start: 'top bottom',
+                        end: 'bottom top',
+                        scrub: 1.5 // Adds a slight motion blur/physics drag feel
+                    },
+                    y: (i, target) => -ScrollTrigger.maxScroll(window) * (speed - 1) * 0.15,
+                    ease: "none"
+                });
+            });
+        }
+
+        // 6. WebGL Background (Three.js - Option D/E) - Cinematic Golden Particles
+        const initWebGL = () => {
+            const canvas = document.getElementById('webgl-canvas');
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0f0c0b, 0.0015);
+
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Create warm floating particles (Coffee aroma concept)
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 400; // Less particles, more elegant
+            const posArray = new Float32Array(particlesCount * 3);
+            const scales = new Float32Array(particlesCount);
+            
+            for(let i = 0; i < particlesCount * 3; i+=3) {
+                posArray[i] = (Math.random() - 0.5) * 30; // x
+                posArray[i+1] = (Math.random() - 0.5) * 30; // y
+                posArray[i+2] = (Math.random() - 0.5) * 20; // z
+                scales[i/3] = Math.random();
+            }
+            
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            particlesGeometry.setAttribute('aScale', new THREE.BufferAttribute(scales, 1));
+            
+            // Custom shader for soft glowing bokeh particles
+            const particlesMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: { value: 0 },
+                    uColor: { value: new THREE.Color(0xd4af37) }
+                },
+                vertexShader: `
+                    uniform float uTime;
+                    attribute float aScale;
+                    varying float vAlpha;
+                    void main() {
+                        vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+                        // Add organic upward floating movement
+                        modelPosition.y += sin(uTime * 0.5 + modelPosition.x) * 0.5;
+                        modelPosition.x += cos(uTime * 0.3 + modelPosition.y) * 0.2;
+                        
+                        vec4 viewPosition = viewMatrix * modelPosition;
+                        gl_Position = projectionMatrix * viewPosition;
+                        
+                        gl_PointSize = 40.0 * aScale * (1.0 / -viewPosition.z);
+                        vAlpha = 0.5 + sin(uTime + aScale * 10.0) * 0.5;
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec3 uColor;
+                    varying float vAlpha;
+                    void main() {
+                        float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                        float strength = 0.05 / distanceToCenter - 0.1;
+                        gl_FragColor = vec4(uColor, strength * vAlpha * 0.6);
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+
+            camera.position.z = 8;
+
+            // Mouse interaction
+            let mouseX = 0;
+            let mouseY = 0;
+            let targetX = 0;
+            let targetY = 0;
+            const windowHalfX = window.innerWidth / 2;
+            const windowHalfY = window.innerHeight / 2;
+
+            document.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX - windowHalfX);
+                mouseY = (event.clientY - windowHalfY);
+            });
+
+            // Animation Loop
+            const clock = new THREE.Clock();
+
+            const tick = () => {
+                const elapsedTime = clock.getElapsedTime();
+
+                // Update shader uniforms
+                particlesMaterial.uniforms.uTime.value = elapsedTime;
+
+                // Parallax effect based on mouse (fluid/physics feel)
+                targetX = mouseX * 0.0005;
+                targetY = mouseY * 0.0005;
+                
+                camera.position.x += (targetX - camera.position.x) * 0.02;
+                camera.position.y += (-targetY - camera.position.y) * 0.02;
+                camera.lookAt(scene.position);
+
+                renderer.render(scene, camera);
+                window.requestAnimationFrame(tick);
+            };
+
+            tick();
+
+            // Handle Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        };
+
+        // Initialize WebGL
+        initWebGL();
+    </script>
+    <style>
+        .writing-vertical-rl {
+            writing-mode: vertical-rl;
+        }
+    </style>
+</body>
+</html>
